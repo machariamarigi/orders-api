@@ -8,9 +8,12 @@ import (
 )
 
 func main() {
+	router := chi.NewRouter()
+
+	router.Get("/hello", basicHandler)
 	server := &http.Server{
 		Addr:    ":3000",
-		Handler: http.HandlerFunc(basicHandler),
+		Handler: router,
 	}
 
 	err := server.ListenAndServe()
