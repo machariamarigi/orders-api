@@ -3,6 +3,7 @@ package order
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/machariamarigi/orders-api/model"
@@ -12,6 +13,8 @@ import (
 type RedisRepo struct {
 	Client *redis.Client
 }
+
+var ErrNotExist = errors.New("order does not exist")
 
 func orderIDKey(orderID uint64) string {
 	return fmt.Sprintf("order:%d", orderID)
@@ -30,4 +33,23 @@ func (r *RedisRepo) Insert(ctx context.Context, order model.Order) error {
 		return fmt.Errorf("failed to insert order: %w", err)
 	}
 	return nil
+}
+
+func (r *RedisRepo) FindByID(ctx context.Context, id uint64) (model.Order, error) {
+	key := orderIDKey(id)
+	value, err := r.Client.Get(ctx, key).Result()
+
+	if errors.Is(err, redis.Nil) {
+		return model.Order{}, ErrNotExist
+	} else if err != nil {
+		return model.Order{}, fmt.Errorf("failed to get order: %w", err)
+	}
+
+	var order model.Order
+	err = json.Unmarshal([]byte(value), &order)
+	if err != nil {
+		return model.Order{}, fmt.Errorf("failed to decode order: %w", err)
+	}
+
+	return order, nil
 }
