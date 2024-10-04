@@ -66,3 +66,21 @@ func (r *RedisRepo) DeleteByID(ctx context.Context, id uint64) error {
 
 	return nil
 }
+
+func (r *RedisRepo) UpdateByID(ctx context.Context, order model.Order) error {
+	data, err := json.Marshal(order)
+	if err != nil {
+		return fmt.Errorf("failed to encode order: %w", err)
+	}
+
+	key := orderIDKey(order.OrderID)
+
+	err = r.Client.SetXX(ctx, key, string(data), 0).Err()
+	if errors.Is(err, redis.Nil) {
+		return ErrNotExist
+	} else if err != nil {
+		return fmt.Errorf("failed to update order: %w", err)
+	}
+
+	return nil
+}
