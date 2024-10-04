@@ -53,3 +53,16 @@ func (r *RedisRepo) FindByID(ctx context.Context, id uint64) (model.Order, error
 
 	return order, nil
 }
+
+func (r *RedisRepo) DeleteByID(ctx context.Context, id uint64) error {
+	key := orderIDKey(id)
+
+	err := r.Client.Del(ctx, key).Err()
+	if errors.Is(err, redis.Nil) {
+		return ErrNotExist
+	} else if err != nil {
+		return fmt.Errorf("failed to delete order: %w", err)
+	}
+
+	return nil
+}
