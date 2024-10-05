@@ -15,7 +15,7 @@ type RedisRepo struct {
 }
 
 type FindAllPage struct {
-	Size   uint
+	Size   uint64
 	Offset uint64
 }
 

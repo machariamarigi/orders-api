@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -54,8 +55,47 @@ func (h *Order) Create(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (o *Order) List(w http.ResponseWriter, r *http.Request) {
+func (h *Order) List(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Listing orders")
+	cursorStr := r.URL.Query().Get("cursor")
+	if cursorStr == "" {
+		cursorStr = "0"
+	}
+
+	const decimal = 10
+	const bitSize = 64
+	cursor, err := strconv.ParseUint(cursorStr, decimal, bitSize)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	const size = 50
+	res, err := h.Repo.FindAll(r.Context(), order.FindAllPage{
+		Offset: cursor,
+		Size:   size,
+	})
+	if err != nil {
+		fmt.Println("failed to find all:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	var response struct {
+		Orders []model.Order `json:"orders"`
+		Next   uint64        `json:"next,omitempty"`
+	}
+	response.Orders = res.Orders
+	response.Next = res.Cursor
+
+	data, err := json.Marshal(response)
+	if err != nil {
+		fmt.Println("failed to marshal:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Write(data)
 }
 
 func (o *Order) GetByID(w http.ResponseWriter, r *http.Request) {
