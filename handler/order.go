@@ -129,8 +129,72 @@ func (h *Order) GetByID(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (o *Order) UpdateByID(w http.ResponseWriter, r *http.Request) {
+func (h *Order) UpdateByID(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Updating an order by ID")
+	var body struct {
+		Status string `json:"status"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+
+	const base = 10
+	const bitSize = 64
+	orderID, err := strconv.ParseUint(id, base, bitSize)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	theOrder, err := h.Repo.FindByID(r.Context(), orderID)
+	if errors.Is(err, order.ErrNotExist) {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	} else if err != nil {
+		fmt.Println("Failed to find order by ID:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	const completedStatus = "completed"
+	const shippedStatus = "shipped"
+	now := time.Now().UTC()
+
+	switch body.Status {
+	case shippedStatus:
+		if theOrder.ShippedAt != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		theOrder.ShippedAt = &now
+	case completedStatus:
+		if theOrder.CompletedAt != nil || theOrder.ShippedAt == nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		theOrder.CompletedAt = &now
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	err = h.Repo.UpdateByID(r.Context(), theOrder)
+	if err != nil {
+		fmt.Println("Failed to update order by ID:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(theOrder); err != nil {
+		fmt.Println("Failed to encode order:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 }
 
 func (o *Order) DeleteByID(w http.ResponseWriter, r *http.Request) {
