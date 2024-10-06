@@ -26,8 +26,8 @@ type FindResult struct {
 
 var ErrNotExist = errors.New("order does not exist")
 
-func orderIDKey(orderID uint64) string {
-	return fmt.Sprintf("order:%d", orderID)
+func orderIDKey(id uint64) string {
+	return fmt.Sprintf("order:%d", id)
 }
 
 func (r *RedisRepo) Insert(ctx context.Context, order model.Order) error {
@@ -65,13 +65,13 @@ func (r *RedisRepo) FindByID(ctx context.Context, id uint64) (model.Order, error
 	if errors.Is(err, redis.Nil) {
 		return model.Order{}, ErrNotExist
 	} else if err != nil {
-		return model.Order{}, fmt.Errorf("failed to get order: %w", err)
+		return model.Order{}, fmt.Errorf("get order: %w", err)
 	}
 
 	var order model.Order
 	err = json.Unmarshal([]byte(value), &order)
 	if err != nil {
-		return model.Order{}, fmt.Errorf("failed to decode order: %w", err)
+		return model.Order{}, fmt.Errorf("failed to decode order json: %w", err)
 	}
 
 	return order, nil
